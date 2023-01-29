@@ -1,0 +1,14 @@
+/*
+!.gitignore
+
+!dataloader
+!tests
+!utils
+!visualisations
+
+!environment.yaml
+!eval.py
+!network.py
+!README.md
+!trainer.py
+__pycache__
