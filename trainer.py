@@ -1,73 +1,100 @@
 import os
 
 import numpy as np
-from pytorch_lightning import loggers, Trainer
+import optuna
+from optuna.integration import PyTorchLightningPruningCallback
+from pytorch_lightning import loggers, Trainer, callbacks
 from torch.utils.data import DataLoader
 import torch
 
 from dataloader.dataloader import Dataset, MultiViewDataset
 from network import ResNet, LateFusionNetwork
-from torchvision.models import resnet18, resnet50
+from torchvision.models import resnet18, resnet50, resnet101
+from torchvision.models import densenet121
 from utils.data_splitting import random_split_dataset
 from eval import evaluate
 
-ROOT_DIR = "/proj/ciptmp/ic33axaq/FAPS/electricMotor/"
+# ROOT_DIR = "/proj/ciptmp/ic33axaq/FAPS/"
+ROOT_DIR = "/home/vault/iwfa/iwfa018h/FAPS/"
+dataset_path = ROOT_DIR + "electricMotor/"
+
 num_classes = 14
+epochs = 500
+lr = 2.2e-4
+batch_size = 64
+# use resnet18, resnet34, resnet50, resnet101, densenet121
+model = densenet121(weights="IMAGENET1K_V1")
+model.name = "densenet121"
+# fc for resnet, classifier for densenet
+backbone_out_features = model.classifier.in_features
+model.classifier = torch.nn.Identity()
 
 if num_classes == 14:
     target_classes = ["C", "MC_2", "MC_O", "MC_U", "MS_1", "MS_2I", "MS_2X", "MS_3", "MS_4", "NS_1", "NS_2I", "NS_2X", "NS_3", "NS_4"]
     csv_file = "train_multiview_img_labels_paths.csv"
-    four_classes = False
 elif num_classes == 4:
     target_classes = ["C", "MC", "MS", "NS"]
     csv_file = "4_classes_train_multiview_img_labels_paths.csv"
-    four_classes = True
 
-# use resnet18, resnet34, resnet50
-resnet_model = resnet50(weights="IMAGENET1K_V1")
 
-# making last FC layer identity
-resnet_model.fc = torch.nn.Identity()
+# # Freeze partial layers
+# freeze_layers = ["layer1"]
+# for layer in freeze_layers:
+#     for param in getattr(model, layer).parameters():
+#         param.requires_grad = False
 
-# Freeze weights
-for param in resnet_model.parameters():
-    param.requires_grad = False
+multiview_data_csv_path = dataset_path + csv_file
 
-# Unfreeze partial layers
-unfreeze_layers = ["layer4", "avgpool", "fc"]
-for layer in unfreeze_layers:
-    for param in getattr(resnet_model, layer).parameters():
-        param.requires_grad = True
+mv_train, mv_val, mv_test = random_split_dataset(MultiViewDataset(multiview_data_csv_path, four_classes=True if num_classes == 4 else False), [0.8, 0.1, 0.1])
 
-multiview_data_csv_path = ROOT_DIR + csv_file
-
-mv_train, mv_val, mv_test = random_split_dataset(MultiViewDataset(multiview_data_csv_path, four_classes=four_classes), [0.7, 0.2, 0.1])
-
-mv_train_loader = DataLoader(mv_train, shuffle=True, batch_size=32, num_workers=4, drop_last=True)
-mv_val_loader = DataLoader(mv_val, shuffle=False, batch_size=32, num_workers=4, drop_last=True)
+mv_train_loader = DataLoader(mv_train, shuffle=True, batch_size=16, num_workers=4, drop_last=True)
+mv_val_loader = DataLoader(mv_val, shuffle=False, batch_size=16, num_workers=4, drop_last=True)
 mv_test_loader = DataLoader(mv_test, shuffle=False, batch_size=1, num_workers=4)
 
-tb_late_fusion = loggers.TensorBoardLogger(save_dir="/proj/ciptmp/ic33axaq/FAPS/experiments/",
+tb_late_fusion = loggers.TensorBoardLogger(save_dir=ROOT_DIR + "experiments/",
                              version=None,
                              prefix="late_fusion",
-                             name='lightning_logs')
+                             name='lightning_logs',
+                             log_graph=False)
 
-wandb_late_fusion = loggers.WandbLogger(project="FAPS AI",
-                             save_dir="/proj/ciptmp/ic33axaq/FAPS/experiments/",
-                             version=None,
-                             prefix="late_fusion",
-                             name='lightning_logs_wandb')
 
+def objective(trial):
+    lr = trial.suggest_float("lr", 1e-5, 1e-3)
+    early_stop = callbacks.EarlyStopping('val_loss', patience=4)
+    trainer = Trainer(
+        logger=True,
+        enable_checkpointing=False,
+        max_epochs=10,
+        accelerator="gpu",
+        devices=1 if torch.cuda.is_available() else None,
+        callbacks=[early_stop],
+    )
+    fusion_model = LateFusionNetwork(backbone=model, backbone_out=backbone_out_features, num_classes=num_classes, lr=lr)
+    trainer.fit(fusion_model, mv_train_loader, mv_val_loader)
+    return trainer.callback_metrics["val_acc"].item()
+
+# study = optuna.create_study(direction="maximize")
+# study.optimize(objective, n_trials=100)
+
+# print("Number of finished trials: {}".format(len(study.trials)))
+# print("Best trial:")
+
+tb_late_fusion.log_hyperparams({"model": model.name,
+                                    "epochs": epochs,
+                                    "batch_size": batch_size,
+                                    "lr": lr,
+                                    "num_classes": num_classes})
 trainer = Trainer(
     accelerator="auto",
     devices=1 if torch.cuda.is_available() else None,
-    max_epochs = 1,
+    max_epochs = epochs,
     log_every_n_steps=15,
-    logger=[tb_late_fusion, wandb_late_fusion])
+    logger=[tb_late_fusion])
 
-fusion_model = LateFusionNetwork(backbone=resnet_model, num_classes=num_classes,lr=1e-4)
+fusion_model = LateFusionNetwork(backbone=model, backbone_out=backbone_out_features, num_classes=num_classes,lr=2.2e-4)
 trainer.fit(fusion_model, mv_train_loader, mv_val_loader)
 trainer.test(dataloaders=mv_test_loader, ckpt_path="last")
 
 preds = trainer.predict(dataloaders=mv_test_loader, ckpt_path="last")
-evaluate(mv_test, preds, target_classes)
+result = evaluate(mv_test, preds, target_classes)
+tb_late_fusion.log_metrics(result)

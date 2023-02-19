@@ -5,7 +5,6 @@ import torch
 import numpy as np
 from PIL import Image, ImageDraw
 
-from augmentations.aug import GeometryAugmentation, IntensityAugmentation
 
 class Dataset(object):
     def __init__(self, path) -> None:
@@ -65,8 +64,6 @@ class Dataset(object):
                 self.data.append(item)
 
     def perform_augmentation(self, img):
-        # item = GeometryAugmentation.perform_augmentation(item)
-        # item = IntensityAugmentation.perform_augmentation(item, normalize=False)
         img = self.img_aug(image=img)
         return img
     
@@ -109,7 +106,7 @@ class MultiViewDataset(object):
         item = self.data[i]
         img1 = self._load_img(item["view1"])
         img2 = self._load_img(item["view2"])
-        new_w, new_h = (512,512)
+        new_w, new_h = (256,256)
         img1 = img1.resize((new_w, new_h))
         img2 = img2.resize((new_w, new_h))
         img1 = np.asarray(img1, dtype=np.float32)
@@ -123,10 +120,10 @@ class MultiViewDataset(object):
             img1 = self.perform_augmentation(img1)
             img2 = self.perform_augmentation(img2)
         img1 = self.normalize(img1)
-        img1 = np.reshape(img1, (3, 512, 512))
+        img1 = np.reshape(img1, (3, new_h, new_w))
         img1 = torch.from_numpy(img1)
         img2 = self.normalize(img2)
-        img2 = np.reshape(img2, (3, 512, 512))
+        img2 = np.reshape(img2, (3, new_h, new_w))
         img2 = torch.from_numpy(img2)
         label = label.astype(dtype=np.float32)
         label = torch.from_numpy(label)

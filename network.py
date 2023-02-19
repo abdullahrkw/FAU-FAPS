@@ -1,6 +1,7 @@
 from collections import OrderedDict
 
 from pytorch_lightning import LightningModule
+from sklearn.metrics import accuracy_score
 import torch
 import torch.nn.functional as F
 import torch.optim
@@ -53,21 +54,18 @@ class ResNet(LightningModule):
 
 
 class LateFusionNetwork(LightningModule):
-    def __init__(self, backbone=None, num_classes=None, lr=1e-4):
+    def __init__(self, backbone=None, backbone_out=1000, num_classes=None, lr=1e-4):
         super().__init__()
         self.backbone = backbone
         self.lr = lr
         self.num_classes = num_classes
+        print("Backbone_out is ", backbone_out)
         self.late_fc = torch.nn.Sequential(OrderedDict([
-          ('fc1', torch.nn.Linear(in_features=4096,out_features=2048)),
-          ('relu1', torch.nn.ReLU()),
-          ('bn1', torch.nn.BatchNorm1d(num_features=2048)),
-          ('dropout1', torch.nn.Dropout(p=0.5, inplace=False)),
-          ('fc2', torch.nn.Linear(in_features=2048,out_features=1024)),
+          ('fc2', torch.nn.Linear(in_features=2*backbone_out, out_features=1024)),
           ('relu2', torch.nn.ReLU()),
           ('bn2', torch.nn.BatchNorm1d(num_features=1024)),
           ('dropout2', torch.nn.Dropout(p=0.5, inplace=False)),
-          ('fc3', torch.nn.Linear(in_features=1024,out_features=512)),
+          ('fc3', torch.nn.Linear(in_features=1024, out_features=512)),
           ('relu3', torch.nn.ReLU()),
           ('bn3', torch.nn.BatchNorm1d(num_features=512)),
           ('dropout3', torch.nn.Dropout(p=0.5, inplace=False)),
@@ -102,9 +100,12 @@ class LateFusionNetwork(LightningModule):
         target = val_batch["label"]
 
         pred = self(x1, x2)
-        pred = torch.sigmoid(pred)
-        loss = F.binary_cross_entropy(pred, target)
+        loss = F.binary_cross_entropy(torch.sigmoid(pred), target)
         self.log("val_loss", loss)
+        target = target.cpu().argmax(axis=1).numpy()
+        pred = pred.cpu().argmax(axis=1).numpy()
+        accuracy = accuracy_score(target, pred)
+        self.log("val_acc", accuracy)
         return loss
 
     def test_step(self, test_batch, batch_idx):
@@ -113,9 +114,12 @@ class LateFusionNetwork(LightningModule):
         target = test_batch["label"]
 
         pred = self(x1, x2)
-        pred = torch.sigmoid(pred)
-        loss = F.binary_cross_entropy(pred, target)
+        loss = F.binary_cross_entropy(torch.sigmoid(pred), target)
         self.log("test_loss", loss)
+        target = target.cpu().argmax(axis=1).numpy()
+        pred = pred.cpu().argmax(axis=1).numpy()
+        accuracy = accuracy_score(target, pred)
+        self.log("test_acc", accuracy)
         return loss
 
     def predict_step(self, batch, batch_idx):
