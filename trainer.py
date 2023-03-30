@@ -14,16 +14,19 @@ from torchvision.models import densenet121
 from utils.data_splitting import random_split_dataset
 from eval import evaluate
 
-# ROOT_DIR = "/proj/ciptmp/ic33axaq/FAPS/"
-ROOT_DIR = "/home/vault/iwfa/iwfa018h/FAPS/"
-dataset_path = ROOT_DIR + "electricMotor/"
+ROOT_DIR = "/home/vault/iwfa/iwfa018h/FAPS/NewMotorsDataset/"
+dataset_path = ROOT_DIR + "processed_labels_motors.csv"
 
-num_classes = 14
+views = ["ImageView_0", "ImageView_90", "ImageView_180", "ImageView_270", "ImageView_Aufsicht", "ImageView_Untersicht"]
+# Order matter for labels
+labels = ["BB", "BK", "BWH1", "BWH2", "BANR1", "BANR2", "NRVNR1", "NRVNR2", "NRVNR3", "NRVNR4"]
+
+num_classes = 10
 epochs = 400
 lr = 2.2e-4
 batch_size = 16
-loss_func = torch.nn.CrossEntropyLoss()
-output_activation = torch.nn.Softmax(dim=1)
+loss_func = torch.nn.BCELoss()
+output_activation = torch.nn.Sigmoid()
 # use resnet18, resnet34, resnet50, resnet101, densenet121
 model = densenet121(weights="IMAGENET1K_V1")
 model.name = "densenet121"
@@ -31,23 +34,15 @@ model.name = "densenet121"
 backbone_out_features = model.classifier.in_features
 model.classifier = torch.nn.Identity()
 
-if num_classes == 14:
-    target_classes = ["C", "MC_2", "MC_O", "MC_U", "MS_1", "MS_2I", "MS_2X", "MS_3", "MS_4", "NS_1", "NS_2I", "NS_2X", "NS_3", "NS_4"]
-    csv_file = "train_multiview_img_labels_paths.csv"
-elif num_classes == 4:
-    target_classes = ["C", "MC", "MS", "NS"]
-    csv_file = "4_classes_train_multiview_img_labels_paths.csv"
-
-
 # Freeze partial layers
 # freeze_layers = ["conv0", "denseblock1"]
 # for layer in freeze_layers:
 #     for param in getattr(getattr(model, "features"), layer).parameters():
 #         param.requires_grad = False
 
-multiview_data_csv_path = dataset_path + csv_file
+multiview_data_csv_path = dataset_path
 
-mv_train, mv_val, mv_test = random_split_dataset(MultiViewDataset(multiview_data_csv_path, four_classes=True if num_classes == 4 else False), [0.8, 0.1, 0.1])
+mv_train, mv_val, mv_test = random_split_dataset(MultiViewDataset2(multiview_data_csv_path), [0.8, 0.1, 0.1])
 
 mv_train_loader = DataLoader(mv_train, shuffle=True, batch_size=batch_size, num_workers=4, drop_last=True)
 mv_val_loader = DataLoader(mv_val, shuffle=False, batch_size=batch_size, num_workers=4, drop_last=True)
@@ -103,10 +98,12 @@ fusion_model = LateFusionNetwork(backbone=model,
                                     num_classes=num_classes,
                                     lr=2.2e-4,
                                     output_activation=output_activation,
-                                    loss_func=loss_func)
+                                    loss_func=loss_func
+                                    views=views,
+                                    labels=labels)
 trainer.fit(fusion_model, mv_train_loader, mv_val_loader)
 trainer.test(dataloaders=mv_test_loader, ckpt_path="last")
 
 preds = trainer.predict(dataloaders=mv_test_loader, ckpt_path="last")
-result = evaluate(mv_test, preds, target_classes)
+result = evaluate(mv_test, preds, labels)
 tb_late_fusion.log_metrics(result)

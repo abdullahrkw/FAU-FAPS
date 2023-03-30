@@ -54,15 +54,24 @@ class ResNet(LightningModule):
 
 
 class LateFusionNetwork(LightningModule):
-    def __init__(self, backbone=None, backbone_out=1000, num_classes=None, lr=1e-4, output_activation=None, loss_func=None):
+    def __init__(self, backbone=None,
+                        backbone_out=1000,
+                        num_classes=None,
+                        lr=1e-4,
+                        output_activation=None,
+                        loss_func=None,
+                        views=None,
+                        labels=None):
         super().__init__()
         self.backbone = backbone
         self.lr = lr
         self.output_activation = output_activation
         self.loss_func = loss_func
         self.num_classes = num_classes
+        self.views = views
+        self.labels = labels
         self.late_fc = torch.nn.Sequential(OrderedDict([
-          ('fc2', torch.nn.Linear(in_features=2*backbone_out, out_features=1024)),
+          ('fc2', torch.nn.Linear(in_features=len(self.views)*backbone_out, out_features=1024)),
           ('relu2', torch.nn.ReLU()),
           ('bn2', torch.nn.BatchNorm1d(num_features=1024)),
           ('dropout2', torch.nn.Dropout(p=0.5, inplace=False)),
@@ -77,30 +86,35 @@ class LateFusionNetwork(LightningModule):
           ('fc5', torch.nn.Linear(in_features=256,out_features=num_classes)),
         ]))
 
-    def forward(self, x1, x2):
-        x1 = self.backbone(x1)
-        x2 = self.backbone(x2)
-        x_cat = torch.cat((x1, x2), dim=1)
+    def forward(self, *views):
+        x_cat = None
+        for view in views:
+            x = self.backbone(view)
+            x_cat = x if x_cat is None else torch.cat((x_cat, x), dim=1)
         x = self.late_fc(x_cat)
         return x
 
     def training_step(self, train_batch, batch_idx):
-        x1 = train_batch["view1"]
-        x2 = train_batch["view2"]
+        views = []
+        for view in self.views:
+            x = train_batch[view]
+            views.append(x)
         target = train_batch["label"]
 
-        pred = self(x1, x2)
+        pred = self(*views)
         pred = self.output_activation(pred)
         loss = self.loss_func(pred, target)
         self.log("train_loss", loss)
         return loss
 
     def validation_step(self, val_batch, batch_idx):
-        x1 = val_batch["view1"]
-        x2 = val_batch["view2"]
+        views = []
+        for view in self.views:
+            x = val_batch[view]
+            views.append(x)
         target = val_batch["label"]
 
-        pred = self(x1, x2)
+        pred = self(*views)
         pred = self.output_activation(pred)
         loss = self.loss_func(pred, target)
         self.log("val_loss", loss)
@@ -111,11 +125,13 @@ class LateFusionNetwork(LightningModule):
         return loss
 
     def test_step(self, test_batch, batch_idx):
-        x1 = test_batch["view1"]
-        x2 = test_batch["view2"]
+        views = []
+        for view in self.views:
+            x = test_batch[view]
+            views.append(x)
         target = test_batch["label"]
 
-        pred = self(x1, x2)
+        pred = self(*views)
         pred = self.output_activation(pred)
         loss = self.loss_func(pred, target)
         self.log("test_loss", loss)
@@ -126,10 +142,12 @@ class LateFusionNetwork(LightningModule):
         return loss
 
     def predict_step(self, batch, batch_idx):
-        x1 = batch["view1"]
-        x2 = batch["view2"]
+        views = []
+        for view in self.views:
+            x = train_batch[view]
+            views.append(x)
 
-        y = self(x1, x2)
+        y = self(*views)
 
         return y
 

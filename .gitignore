@@ -9,6 +9,7 @@
 !environment.yaml
 !eval.py
 !network.py
+!processed_labels_motors.csv
 !README.md
 !trainer.py
 __pycache__

@@ -80,20 +80,95 @@ class MultiViewDataset(object):
         norm_item = (item - mean)/std
         return norm_item
 
+class MultiViewDataset2(object):
+    def __init__(self, path, views, labels) -> None:
+        self.data = []
+        self.transform = True
+        self.views = views
+        self.labels = labels
+        self.initialize_data(path)
+        self.img_aug =  ia.Sometimes(0.8, ia.SomeOf(2, [
+            ia.Fliplr(0.5), # horizontally flip 50% of the images
+            ia.GaussianBlur(sigma=(0, 1.5)), # blur images with a sigma of 0 to 3.0
+            ia.Affine(scale=(0.7, 1.1)), 
+            ia.Affine(rotate=(-45, 45)),
+        ]))
+
+    def __getitem__(self, i) -> dict:
+        item = self.data[i]
+        output = {}
+        # for view in self.views:
+        #     output[view] = self._process_view(self._load_img(item[view]))
+        
+        label = np.asarray(item["label"], dtype=np.float32)
+        label = torch.from_numpy(label)
+        output["label"] = label
+        return output
+
+    def _process_view(img):
+        new_w, new_h = (256,256)
+        img = img.resize((new_w, new_h))
+        img = np.asarray(img, dtype=np.float32)
+        if self.transform:
+            img = self.perform_augmentation(img)
+        img = self.normalize(img)
+        img = np.reshape(img, (3, new_h, new_w))
+        img = torch.from_numpy(img)
+        return img
+
+    def __len__(self):
+        return len(self.data)
+    
+    def _load_img(self, path) -> Image:
+        img = Image.open(path)
+        img = img.convert(mode="RGB")
+        return img
+
+    def initialize_data(self, path) -> None:
+        with open(path, newline='') as csvfile:
+            # first row (header) will be treated as field names
+            reader = csv.DictReader(csvfile, fieldnames=None)
+            for row in reader:
+                item = dict()
+                item["label"] = []
+                for view in self.views:
+                    item[view] = row[view]
+                for label in self.labels:
+                    item["label"].append(float(row[label]))
+                item["id"] = len(self.data)
+                self.data.append(item)
+        random.shuffle(self.data)
+        random.shuffle(self.data)
+
+    def perform_augmentation(self, img):
+        img = self.img_aug(image=img)
+        return img
+
+    def normalize(self, item):
+        mean = np.mean(item)
+        std = np.std(item)
+        norm_item = (item - mean)/std
+        return norm_item
+
 if __name__=="__main__":
-    ROOT_DIR = "/proj/ciptmp/ic33axaq/FAPS/electricMotor/"
-    multiview_data_csv_path = ROOT_DIR + "train_multiview_img_labels_paths.csv"
-    mv_dst = MultiViewDataset(multiview_data_csv_path)
+    views = ["ImageView_0", "ImageView_90", "ImageView_180", "ImageView_270", "ImageView_Aufsicht", "ImageView_Untersicht"]
+    # Order matter for labels
+    labels = ["BB", "BK", "BWH1", "BWH2", "BANR1", "BANR2", "NRVNR1", "NRVNR2", "NRVNR3", "NRVNR4"]
+    ROOT_DIR = "/home/vault/iwfa/iwfa018h/FAPS/NewMotorsDataset/"
+    csv_path = ROOT_DIR + "processed_labels_motors.csv"
+    mv_dst = MultiViewDataset2(csv_path, views, labels)
+    print(mv_dst.data[0])
     item = mv_dst[0]
-    view1 = item["view1"]
-    view1 = view1.numpy()
-    print(view1.shape)
-    view1 = view1.reshape((512, 512, 3))
-    view1 = view1.astype(np.uint8)
+    print(item)
+    # view1 = item["view1"]
+    # view1 = view1.numpy()
+    # print(view1.shape)
+    # view1 = view1.reshape((512, 512, 3))
+    # view1 = view1.astype(np.uint8)
 
-    img = Image.fromarray(view1)
+    # img = Image.fromarray(view1)
 
-    img = img.convert("RGB")
-    img.save("view2.jpg")
+    # img = img.convert("RGB")
+    # img.save("view2.jpg")
 
 
