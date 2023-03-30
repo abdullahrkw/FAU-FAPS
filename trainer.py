@@ -7,7 +7,7 @@ from pytorch_lightning import loggers, Trainer, callbacks
 from torch.utils.data import DataLoader
 import torch
 
-from dataloader.dataloader import Dataset, MultiViewDataset
+from dataloader.dataloader import MultiViewDataset
 from network import ResNet, LateFusionNetwork
 from torchvision.models import resnet18, resnet50, resnet101
 from torchvision.models import densenet121
@@ -19,9 +19,11 @@ ROOT_DIR = "/home/vault/iwfa/iwfa018h/FAPS/"
 dataset_path = ROOT_DIR + "electricMotor/"
 
 num_classes = 14
-epochs = 500
+epochs = 400
 lr = 2.2e-4
-batch_size = 64
+batch_size = 16
+loss_func = torch.nn.CrossEntropyLoss()
+output_activation = torch.nn.Softmax(dim=1)
 # use resnet18, resnet34, resnet50, resnet101, densenet121
 model = densenet121(weights="IMAGENET1K_V1")
 model.name = "densenet121"
@@ -37,18 +39,18 @@ elif num_classes == 4:
     csv_file = "4_classes_train_multiview_img_labels_paths.csv"
 
 
-# # Freeze partial layers
-# freeze_layers = ["layer1"]
+# Freeze partial layers
+# freeze_layers = ["conv0", "denseblock1"]
 # for layer in freeze_layers:
-#     for param in getattr(model, layer).parameters():
+#     for param in getattr(getattr(model, "features"), layer).parameters():
 #         param.requires_grad = False
 
 multiview_data_csv_path = dataset_path + csv_file
 
 mv_train, mv_val, mv_test = random_split_dataset(MultiViewDataset(multiview_data_csv_path, four_classes=True if num_classes == 4 else False), [0.8, 0.1, 0.1])
 
-mv_train_loader = DataLoader(mv_train, shuffle=True, batch_size=16, num_workers=4, drop_last=True)
-mv_val_loader = DataLoader(mv_val, shuffle=False, batch_size=16, num_workers=4, drop_last=True)
+mv_train_loader = DataLoader(mv_train, shuffle=True, batch_size=batch_size, num_workers=4, drop_last=True)
+mv_val_loader = DataLoader(mv_val, shuffle=False, batch_size=batch_size, num_workers=4, drop_last=True)
 mv_test_loader = DataLoader(mv_test, shuffle=False, batch_size=1, num_workers=4)
 
 tb_late_fusion = loggers.TensorBoardLogger(save_dir=ROOT_DIR + "experiments/",
@@ -83,15 +85,25 @@ tb_late_fusion.log_hyperparams({"model": model.name,
                                     "epochs": epochs,
                                     "batch_size": batch_size,
                                     "lr": lr,
+                                    "loss_func": loss_func,
+                                    "output_activation": output_activation,
                                     "num_classes": num_classes})
+
+early_stop = callbacks.EarlyStopping('val_acc', mode="max", stopping_threshold=0.93)
 trainer = Trainer(
     accelerator="auto",
     devices=1 if torch.cuda.is_available() else None,
     max_epochs = epochs,
     log_every_n_steps=15,
+    # callbacks=[early_stop],
     logger=[tb_late_fusion])
 
-fusion_model = LateFusionNetwork(backbone=model, backbone_out=backbone_out_features, num_classes=num_classes,lr=2.2e-4)
+fusion_model = LateFusionNetwork(backbone=model,
+                                    backbone_out=backbone_out_features,
+                                    num_classes=num_classes,
+                                    lr=2.2e-4,
+                                    output_activation=output_activation,
+                                    loss_func=loss_func)
 trainer.fit(fusion_model, mv_train_loader, mv_val_loader)
 trainer.test(dataloaders=mv_test_loader, ckpt_path="last")
 

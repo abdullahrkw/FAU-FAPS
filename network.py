@@ -54,12 +54,13 @@ class ResNet(LightningModule):
 
 
 class LateFusionNetwork(LightningModule):
-    def __init__(self, backbone=None, backbone_out=1000, num_classes=None, lr=1e-4):
+    def __init__(self, backbone=None, backbone_out=1000, num_classes=None, lr=1e-4, output_activation=None, loss_func=None):
         super().__init__()
         self.backbone = backbone
         self.lr = lr
+        self.output_activation = output_activation
+        self.loss_func = loss_func
         self.num_classes = num_classes
-        print("Backbone_out is ", backbone_out)
         self.late_fc = torch.nn.Sequential(OrderedDict([
           ('fc2', torch.nn.Linear(in_features=2*backbone_out, out_features=1024)),
           ('relu2', torch.nn.ReLU()),
@@ -89,8 +90,8 @@ class LateFusionNetwork(LightningModule):
         target = train_batch["label"]
 
         pred = self(x1, x2)
-        pred = torch.sigmoid(pred)
-        loss = F.binary_cross_entropy(pred, target)
+        pred = self.output_activation(pred)
+        loss = self.loss_func(pred, target)
         self.log("train_loss", loss)
         return loss
 
@@ -100,7 +101,8 @@ class LateFusionNetwork(LightningModule):
         target = val_batch["label"]
 
         pred = self(x1, x2)
-        loss = F.binary_cross_entropy(torch.sigmoid(pred), target)
+        pred = self.output_activation(pred)
+        loss = self.loss_func(pred, target)
         self.log("val_loss", loss)
         target = target.cpu().argmax(axis=1).numpy()
         pred = pred.cpu().argmax(axis=1).numpy()
@@ -114,7 +116,8 @@ class LateFusionNetwork(LightningModule):
         target = test_batch["label"]
 
         pred = self(x1, x2)
-        loss = F.binary_cross_entropy(torch.sigmoid(pred), target)
+        pred = self.output_activation(pred)
+        loss = self.loss_func(pred, target)
         self.log("test_loss", loss)
         target = target.cpu().argmax(axis=1).numpy()
         pred = pred.cpu().argmax(axis=1).numpy()

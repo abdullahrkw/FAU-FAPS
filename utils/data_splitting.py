@@ -2,10 +2,8 @@ import numpy as np
 import torch
 from torch.utils.data import random_split
 
-from dataloader.dataloader import Dataset
 
-
-def random_split_dataset(dataset: Dataset, splits):
+def random_split_dataset(dataset, splits):
     if len(splits) != 3:
         raise ValueError(f"Specify 3 splits not {len(splits)}")
     [train, val, test] = random_split(dataset, splits, generator=torch.Generator().manual_seed(42))
