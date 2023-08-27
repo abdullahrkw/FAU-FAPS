@@ -1,10 +1,9 @@
 
 Data/
 logs/
+lightning_logs/
 
-VanillaVAE/version_0/
+VanillaVAE/
 
 __pycache__/
-.ipynb_checkpoints/
-
-Run.ipynb
+*.png
