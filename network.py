@@ -1,7 +1,7 @@
 from collections import OrderedDict
 
 from pytorch_lightning import LightningModule
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, confusion_matrix
 import torch
 import torch.nn.functional as F
 import torch.optim
@@ -100,7 +100,7 @@ class LateFusionNetwork(LightningModule):
             x = train_batch[view]
             views.append(x)
         target = train_batch["label"]
-
+        # print(torch.bincount(torch.argmax(target, dim=1)))
         pred = self(*views)
         pred = self.output_activation(pred)
         loss = self.loss_func(pred, target)
@@ -121,7 +121,11 @@ class LateFusionNetwork(LightningModule):
         target = target.cpu().argmax(axis=1).numpy()
         pred = pred.cpu().argmax(axis=1).numpy()
         accuracy = accuracy_score(target, pred)
-        self.log("val_acc", accuracy)
+        # cm = confusion_matrix(target, pred)
+        # tp, fn, fp, tn = cm.ravel()
+        # self.log("val_true_pos", torch.tensor(tp, dtype=torch.float32), on_epoch=True, reduce_fx="sum")
+        # self.log("val_false_neg", torch.tensor(fn, dtype=torch.float32), on_epoch=True, reduce_fx="sum")
+        self.log("val_acc", accuracy, on_epoch=True)
         return loss
 
     def test_step(self, test_batch, batch_idx):
@@ -144,7 +148,7 @@ class LateFusionNetwork(LightningModule):
     def predict_step(self, batch, batch_idx):
         views = []
         for view in self.views:
-            x = train_batch[view]
+            x = batch[view]
             views.append(x)
 
         y = self(*views)
@@ -152,4 +156,13 @@ class LateFusionNetwork(LightningModule):
         return y
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr, weight_decay=0.05)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=5, verbose=True),
+                "monitor": "val_loss",
+                "interval": "epoch",
+                "frequency": 1,
+            },
+        }      

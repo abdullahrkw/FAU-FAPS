@@ -33,12 +33,12 @@ def evaluate(dataset, preds, classes):
     gts = np.zeros((len(preds), len(classes)))
     predsn = np.zeros((len(preds), len(classes)))
 
-    for id in range(len(preds)):
-        gt = dataset[id]["label"]
-        pred = preds[id]
+    for id_ in range(len(preds)):
+        gt = dataset[id_]["label"]
+        pred = preds[id_]
         # pred = torch.sigmoid(pred)
-        gts[id] = gt.numpy()
-        predsn[id] = pred.numpy()
+        gts[id_] = gt.numpy()
+        predsn[id_] = pred.numpy()
 
 
     print(predsn[:10])
@@ -47,8 +47,11 @@ def evaluate(dataset, preds, classes):
     print(y_pred)
     cm = confusion_matrix(y_true, y_pred)
     print(cm)
+    tp, fn, fp, tn = cm.ravel()
+    print("TP = ", tp, "FP = ", fp, "FN = ", fn, "TN = ", tn)
     result["accuracy"] = accuracy_score(y_true, y_pred)
-
+    result["true_positive"] = tp
+    result["false_negative"] = fn
     result["micro_precision"] = precision_score(y_true, y_pred, average='micro', zero_division=0)
     result["micro_recall"] = recall_score(y_true, y_pred, average='micro', zero_division=0)
     result["micro_f1"] = f1_score(y_true, y_pred, average='micro', zero_division=0)

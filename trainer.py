@@ -1,32 +1,42 @@
 import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 import optuna
 from optuna.integration import PyTorchLightningPruningCallback
 from pytorch_lightning import loggers, Trainer, callbacks
 from torch.utils.data import DataLoader
 import torch
-
-from dataloader.dataloader import MultiViewDataset
-from network import ResNet, LateFusionNetwork
+from torch.utils.data import WeightedRandomSampler
 from torchvision.models import resnet18, resnet50, resnet101
 from torchvision.models import densenet121
+
+from dataloader.dataloader import MultiViewDataset, MultiViewDataset2
+from focal_loss import FocalLoss
+from network import ResNet, LateFusionNetwork
 from utils.data_splitting import random_split_dataset
+from utils.visualisations import visualize_dataloader_for_class_balance
 from eval import evaluate
 
-ROOT_DIR = "/home/vault/iwfa/iwfa018h/FAPS/NewMotorsDataset/"
-dataset_path = ROOT_DIR + "processed_labels_motors.csv"
+ROOT_DIR = "/home/vault/iwfa/iwfa018h/FAPS/NewMotorsDataset/AugClassification1/Sheet_Metal_Package/"
+print(ROOT_DIR)
+train_csv_path = os.path.join(ROOT_DIR, "train.csv")
+test_csv_path = os.path.join(ROOT_DIR, "test.csv")
+val_csv_path = os.path.join(ROOT_DIR, "val.csv")
 
-views = ["ImageView_0", "ImageView_90", "ImageView_180", "ImageView_270", "ImageView_Aufsicht", "ImageView_Untersicht"]
+views = ["file_name"]
+# views = ["1", "2", "3",  "4", "5", "6"]
+
 # Order matter for labels
-labels = ["BB", "BK", "BWH1", "BWH2", "BANR1", "BANR2", "NRVNR1", "NRVNR2", "NRVNR3", "NRVNR4"]
+labels = ["label", "~label"]
 
-num_classes = 10
-epochs = 400
-lr = 2.2e-4
-batch_size = 16
-loss_func = torch.nn.BCELoss()
-output_activation = torch.nn.Sigmoid()
+num_classes = len(labels)
+epochs = 30
+lr = 0.0001
+batch_size = 32
+loss_func = torch.nn.CrossEntropyLoss(weight=None)
+# loss_func = FocalLoss(gamma=1)
+output_activation = torch.nn.Softmax(dim=1)
 # use resnet18, resnet34, resnet50, resnet101, densenet121
 model = densenet121(weights="IMAGENET1K_V1")
 model.name = "densenet121"
@@ -35,25 +45,43 @@ backbone_out_features = model.classifier.in_features
 model.classifier = torch.nn.Identity()
 
 # Freeze partial layers
-# freeze_layers = ["conv0", "denseblock1"]
-# for layer in freeze_layers:
-#     for param in getattr(getattr(model, "features"), layer).parameters():
-#         param.requires_grad = False
+freeze_layers = []
+for layer in freeze_layers:
+    for param in getattr(getattr(model, "features"), layer).parameters():
+        param.requires_grad = False
 
-multiview_data_csv_path = dataset_path
+train_dataset = MultiViewDataset2(train_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
+val_dataset = MultiViewDataset2(val_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
+test_dataset = MultiViewDataset2(test_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
 
-mv_train, mv_val, mv_test = random_split_dataset(MultiViewDataset2(multiview_data_csv_path), [0.8, 0.1, 0.1])
 
-mv_train_loader = DataLoader(mv_train, shuffle=True, batch_size=batch_size, num_workers=4, drop_last=True)
-mv_val_loader = DataLoader(mv_val, shuffle=False, batch_size=batch_size, num_workers=4, drop_last=True)
-mv_test_loader = DataLoader(mv_test, shuffle=False, batch_size=1, num_workers=4)
+# Sampler to for oversampling/undersampling to counter class imbalance
+class_counts = np.ones(num_classes)
+for i, val in enumerate(train_dataset.data):
+    label = np.asarray(val["label"])
+    # assuming one-hot encoding
+    class_ = np.argmax(label)
+    class_counts[class_] += 1
+
+sample_weights = np.zeros(len(train_dataset.data))
+for i, val in enumerate(train_dataset.data):
+    label = np.asarray(val["label"])
+    # assuming one-hot encoding
+    class_ = np.argmax(label)
+    sample_weights[i] = 1/class_counts[class_]
+
+sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(train_dataset), replacement=True)
+mv_train_loader = DataLoader(train_dataset, sampler=sampler, shuffle=False, batch_size=batch_size, num_workers=4, drop_last=True)
+mv_val_loader = DataLoader(val_dataset, shuffle=False, batch_size=batch_size, num_workers=4, drop_last=True)
+mv_test_loader = DataLoader(test_dataset, shuffle=False, batch_size=1, num_workers=4)
+
+# visualize_dataloader_for_class_balance(mv_train_loader, labels, "visualisations/balanced_dataset.png")
 
 tb_late_fusion = loggers.TensorBoardLogger(save_dir=ROOT_DIR + "experiments/",
                              version=None,
                              prefix="late_fusion",
                              name='lightning_logs',
                              log_graph=False)
-
 
 def objective(trial):
     lr = trial.suggest_float("lr", 1e-5, 1e-3)
@@ -96,14 +124,19 @@ trainer = Trainer(
 fusion_model = LateFusionNetwork(backbone=model,
                                     backbone_out=backbone_out_features,
                                     num_classes=num_classes,
-                                    lr=2.2e-4,
+                                    lr=lr,
                                     output_activation=output_activation,
-                                    loss_func=loss_func
+                                    loss_func=loss_func,
                                     views=views,
                                     labels=labels)
 trainer.fit(fusion_model, mv_train_loader, mv_val_loader)
 trainer.test(dataloaders=mv_test_loader, ckpt_path="last")
+# Prediction on validation dataset
+mv_val_loader = DataLoader(val_dataset, shuffle=False, batch_size=1, num_workers=4, drop_last=True)
+preds = trainer.predict(dataloaders=mv_val_loader, ckpt_path="last")
+result = evaluate(val_dataset, preds, labels)
 
+# prediction on test dataset
 preds = trainer.predict(dataloaders=mv_test_loader, ckpt_path="last")
-result = evaluate(mv_test, preds, labels)
+result = evaluate(test_dataset, preds, labels)
 tb_late_fusion.log_metrics(result)

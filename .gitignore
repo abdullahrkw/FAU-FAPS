@@ -2,14 +2,15 @@
 !.gitignore
 
 !dataloader
+!PyTorch-VAE
 !tests
 !utils
 !visualisations
+!ViT
 
+!*.py
 !environment.yaml
-!eval.py
-!network.py
 !processed_labels_motors.csv
 !README.md
-!trainer.py
+!run-job.sh
 __pycache__
