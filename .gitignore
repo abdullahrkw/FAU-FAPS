@@ -1,16 +1,12 @@
 /*
 !.gitignore
 
-!dataloader
+!multiview
 !PyTorch-VAE
-!tests
-!utils
-!visualisations
 !ViT
 
 !*.py
 !environment.yaml
-!processed_labels_motors.csv
 !README.md
 !run-job.sh
 __pycache__
