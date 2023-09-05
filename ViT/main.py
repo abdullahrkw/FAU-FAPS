@@ -2,6 +2,7 @@ import argparse
 import os
 
 import numpy as np
+from sklearn.metrics import confusion_matrix
 import torch
 from torch import nn
 from torchvision import datasets, transforms, models
@@ -9,7 +10,7 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from torch import optim
 
-from dataloader import MultiViewDataset
+from dataloader_new import MultiViewDataset
 from my_models import ViT, CrossViT   # rename the skeleton file for your implementation / comment before testing for ResNet
 
 
@@ -47,35 +48,38 @@ def test(model, device, test_loader, criterion, set="Test"):
     model.eval()
     test_loss = 0
     correct = 0
+    cm = np.zeros((2,2))
+    batch_size = 1
     with torch.no_grad():
         for data, target in test_loader:
+            batch_size = len(data)
             data, target = data.to(device), target.to(device)
             output = model(data)
             test_loss += criterion(output, target).item()  # sum up batch loss
             pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             target = target.argmax(dim=1, keepdim=True)
-            print("target", target.transpose(0, 1))
-            print("pred..", pred.transpose(0, 1))
             correct += pred.eq(target.view_as(pred)).sum().item()
+            cm += confusion_matrix(target.cpu(), pred.cpu(), labels=[0, 1])
 
-    test_loss /= len(test_loader.dataset)
-    acc = 100. * correct / len(test_loader.dataset)
+    print(cm)
+    test_loss /= len(test_loader)*batch_size
+    acc = 100. * correct / (len(test_loader)*batch_size)
     print('\n{} set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-        set, test_loss, correct, len(test_loader.dataset),
+        set, test_loss, correct, len(test_loader)*batch_size,
         acc))
     return acc
 
 
 def run(args):
     transform = transforms.Compose([transforms.ToTensor(),
-                                    # transforms.RandomCrop(size=(32,32)),
-                                    transforms.RandomHorizontalFlip(p=0.5),
+                                    transforms.GaussianBlur(kernel_size=7, sigma=40),
+
                                     # ImageNet mean/std values
 									transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225) ) 
                                     ])
     
     target_transform = None
-    ROOT_DIR = "Classification1/Screw/"
+    ROOT_DIR = "/home/vault/iwfa/iwfa018h/FAPS/NewMotorsDataset/AugClassification1/Sheet_Metal_Package/"
     print(ROOT_DIR)
     train_csv_path = os.path.join(ROOT_DIR, "train.csv")
     test_csv_path = os.path.join(ROOT_DIR, "test.csv")

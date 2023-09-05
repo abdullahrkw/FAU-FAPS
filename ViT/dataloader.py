@@ -63,7 +63,7 @@ class MultiViewDataset(Dataset):
     
     def _load_img(self, path) -> Image:
         img = Image.open(path)
-        img = img.convert(mode="L")
+        # img = img.convert(mode="L")
         img = img.convert(mode="RGB")
         return img
 
