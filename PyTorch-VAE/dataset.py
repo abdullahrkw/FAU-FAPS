@@ -6,15 +6,10 @@ import numpy as np
 from PIL import Image
 
 import torch
-from torch import Tensor
-from pathlib import Path
-from typing import List, Optional, Sequence, Union, Any, Callable
-from torchvision.datasets.folder import default_loader
+from typing import List, Optional, Sequence, Union
 from pytorch_lightning import LightningDataModule
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from torchvision import transforms
-from torchvision.datasets import CelebA
-import zipfile
 
 
 class MultiViewDataset(object):
@@ -98,6 +93,7 @@ class VAEDataset(LightningDataModule):
     def __init__(
         self,
         data_path: str,
+        problem : str,
         train_batch_size: int = 8,
         val_batch_size: int = 8,
         patch_size: Union[int, Sequence[int]] = (256, 256),
@@ -112,12 +108,11 @@ class VAEDataset(LightningDataModule):
         # Order matter for labels
         self.labels = ["label", "~label"]
 
-        self.data_dir = data_path
-        self.data_dir = "/proj/ciptmp/ic33axaq/FAPS/PyTorch-VAE/Data/Classification1/Screw/"
+        self.data_dir = os.path.join(data_path, problem)
         print(self.data_dir)
         self.train_csv_path = os.path.join(self.data_dir, "train-one-class.csv")
         self.test_csv_path = os.path.join(self.data_dir, "test.csv")
-        self.val_csv_path = os.path.join(self.data_dir, "val-one-class.csv")
+        self.val_csv_path = os.path.join(self.data_dir, "val.csv")
 
         self.train_batch_size = train_batch_size
         self.val_batch_size = val_batch_size

@@ -45,7 +45,6 @@ data = VAEDataset(**config["data_params"], pin_memory=False)
 
 data.setup()
 runner = Trainer(logger=tb_logger,
-                 log_every_n_steps=20,
                  callbacks=[
                      LearningRateMonitor(),
                      ModelCheckpoint(save_top_k=2, 
@@ -64,11 +63,14 @@ Path(f"{tb_logger.log_dir}/Reconstructions").mkdir(exist_ok=True, parents=True)
 
 
 print(f"======= Training {config['model_params']['name']} =======")
-runner.fit(experiment, datamodule=data)
+# runner.fit(experiment, datamodule=data)
 print(f"======= Testing {config['model_params']['name']} =======")
-runner.test(dataloaders=data.test_dataloader(), ckpt_path="last")
+# runner.test(dataloaders=data.test_dataloader(), ckpt_path="last")
 print(f"======= Predicting {config['model_params']['name']} =======")
 
+runner = Trainer()
+checkpoint = torch.load("logs/VanillaVAE/version_9/checkpoints/last.ckpt", map_location=torch.device("cpu"))
+experiment.load_state_dict(checkpoint['state_dict'])
 experiment.eval()  # Set the model to evaluation mode
 preds = runner.predict(experiment, dataloaders=data.val_dataloader(), ckpt_path="last")
 
@@ -89,7 +91,7 @@ error_class = (1-labels_list)*recon_error_list
 threshold = np.mean(np.unique(np.sort(error_class))[-10:-1])
 plt.hlines(threshold, 0, len(labels_list), label=f"Threshold = {threshold:.2f}")
 plt.legend()
-plt.savefig(f"recon_error_{config['data_params']['problem']}_{config['trainer_params']['max_epochs']}_val.png")
+plt.savefig(f"recon_error_{config['trainer_params']['max_epochs']}_val.png")
 
 # Confusion metrics
 print("Validation Dataset Matrics")
@@ -121,7 +123,7 @@ error_class = (1-labels_list)*recon_error_list
 # threshold = np.unique(np.sort(error_class))[-2]
 plt.hlines(threshold, 0, len(labels_list), label=f"Threshold = {threshold:.2f}")
 plt.legend()
-plt.savefig(f"recon_error_{config['data_params']['problem']}_{config['trainer_params']['max_epochs']}_test.png")
+plt.savefig(f"recon_error_{config['trainer_params']['max_epochs']}_test.png")
 
 # Confusion metrics
 print("Test Dataset Matrics")
