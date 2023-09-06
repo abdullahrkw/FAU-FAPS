@@ -1,4 +1,4 @@
-
+*.o*
 Data/
 logs/
 lightning_logs/

@@ -15,4 +15,4 @@ source /home/hpc/iwfa/iwfa018h/.bashrc
 conda activate FAPS
 # python trainer.py
 # python main.py --model cvit --epochs 50
-python run.py
+python trainer.py

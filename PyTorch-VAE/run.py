@@ -53,7 +53,7 @@ runner = Trainer(logger=tb_logger,
                                      monitor= "val_loss",
                                      save_last= True),
                  ],
-                 strategy=DDPStrategy(find_unused_parameters=False),
+                #  strategy=DDPStrategy(find_unused_parameters=False),
                  accelerator="auto",
                  devices=1 if torch.cuda.is_available() else None,
                  **config['trainer_params'])

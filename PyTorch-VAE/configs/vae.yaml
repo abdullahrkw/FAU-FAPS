@@ -6,12 +6,12 @@ model_params:
 
 
 data_params:
-  data_path: "Data/Classification1"
+  data_path: "/home/vault/iwfa/iwfa018h/FAPS/NewMotorsDataset/Classification1"
   train_batch_size: 64
   val_batch_size:  64
   patch_size: 128
   num_workers: 4
-  problem: "Winding_Head" #["Screw", "Sheet_Metal_Package", "Winding_Head"]
+  problem: "Sheet_Metal_Package" #["Screw", "Sheet_Metal_Package", "Winding_Head", "Cable", "Cover"]
 
 exp_params:
   LR: 0.005

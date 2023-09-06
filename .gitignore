@@ -1,6 +1,7 @@
 /*
 !.gitignore
 
+!CNN
 !multiview
 !PyTorch-VAE
 !ViT
