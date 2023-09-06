@@ -16,16 +16,16 @@ from models import ViT, CrossViT   # rename the skeleton file for your implement
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a neural network to classify CIFAR10')
-    parser.add_argument('--model', type=str, default='r18', help='model to train (default: r18)')
+    parser.add_argument('--model', type=str, default='cvit', help='model to train (default: cvit)')
     parser.add_argument('--batch-size', type=int, default=128, help='input batch size for training (default: 64)')
     parser.add_argument('--epochs', type=int, default=5, help='number of epochs to train (default: 5)')
-    parser.add_argument('--lr', type=float, default=0.0001, help='learning rate (default: 0.0001)')
+    parser.add_argument('--lr', type=float, default=0.001, help='learning rate (default: 0.0001)')
     parser.add_argument('--momentum', type=float, default=0.9, help='SGD momentum (default: 0.9)')
     parser.add_argument('--no-cuda', action='store_true', default=False, help='disables CUDA training')
     parser.add_argument('--seed', type=int, default=1, help='random seed (default: 1)')
     parser.add_argument('--log-interval', type=int, default=10, help='how many batches to wait before logging training status')
     parser.add_argument('--save-model', action='store_true', default=False, help='For Saving the current Model')
-    parser.add_argument('--problem', type=str, default="Screw", help='Problem for classification')
+    parser.add_argument('--problem', type=str, default="Cover", help='Problem for classification')
     parser.add_argument('--dry-run', action='store_true', default=False, help='quickly check a single pass')
     return parser.parse_args()
 

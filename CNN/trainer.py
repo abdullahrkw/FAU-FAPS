@@ -41,8 +41,7 @@ output_activation = torch.nn.Softmax(dim=1)
 model = densenet121(weights="IMAGENET1K_V1")
 model.name = "densenet121"
 # fc for resnet, classifier for densenet
-backbone_out_features = model.classifier.in_features
-model.classifier = torch.nn.Identity()
+backbone_out_features = model.classifier.out_features
 
 # Freeze partial layers
 freeze_layers = []
@@ -94,7 +93,7 @@ def objective(trial):
         devices=1 if torch.cuda.is_available() else None,
         callbacks=[early_stop],
     )
-    fusion_model = LateFusionNetwork(backbone=model, backbone_out=backbone_out_features, num_classes=num_classes, lr=lr)
+    fusion_model = DeepCNN(backbone=model, backbone_out=backbone_out_features, num_classes=num_classes, lr=lr)
     trainer.fit(fusion_model, mv_train_loader, mv_val_loader)
     return trainer.callback_metrics["val_acc"].item()
 
@@ -121,7 +120,7 @@ trainer = Trainer(
     # callbacks=[early_stop],
     logger=[tb_late_fusion])
 
-fusion_model = LateFusionNetwork(backbone=model,
+fusion_model = DeepCNN(backbone=model,
                                     backbone_out=backbone_out_features,
                                     num_classes=num_classes,
                                     lr=lr,

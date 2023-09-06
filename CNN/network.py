@@ -71,19 +71,7 @@ class DeepCNN(LightningModule):
         self.views = views
         self.labels = labels
         self.late_fc = torch.nn.Sequential(OrderedDict([
-          ('fc2', torch.nn.Linear(in_features=len(self.views)*backbone_out, out_features=1024)),
-          ('relu2', torch.nn.ReLU()),
-          ('bn2', torch.nn.BatchNorm1d(num_features=1024)),
-          ('dropout2', torch.nn.Dropout(p=0.5, inplace=False)),
-          ('fc3', torch.nn.Linear(in_features=1024, out_features=512)),
-          ('relu3', torch.nn.ReLU()),
-          ('bn3', torch.nn.BatchNorm1d(num_features=512)),
-          ('dropout3', torch.nn.Dropout(p=0.5, inplace=False)),
-          ('fc4', torch.nn.Linear(in_features=512,out_features=256)),
-          ('relu4', torch.nn.ReLU()),
-          ('bn4', torch.nn.BatchNorm1d(num_features=256)),
-          ('dropout4', torch.nn.Dropout(p=0.5, inplace=False)),
-          ('fc5', torch.nn.Linear(in_features=256,out_features=num_classes)),
+          ('fc2', torch.nn.Linear(in_features=len(self.views)*backbone_out, out_features=num_classes)),
         ]))
 
     def forward(self, *views):
