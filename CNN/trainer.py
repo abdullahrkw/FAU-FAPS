@@ -1,3 +1,4 @@
+import argparse
 import os
 
 import matplotlib.pyplot as plt
@@ -18,7 +19,21 @@ from utils.data_splitting import random_split_dataset
 from utils.visualisations import visualize_dataloader_for_class_balance
 from eval import evaluate
 
-ROOT_DIR = "/home/vault/iwfa/iwfa018h/FAPS/NewMotorsDataset/AugClassification1/Sheet_Metal_Package/"
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Train a neural network to classify CIFAR10')
+    parser.add_argument('--batch-size', type=int, default=32, help='input batch size for training (default: 64)')
+    parser.add_argument('--epochs', type=int, default=5, help='number of epochs to train (default: 5)')
+    parser.add_argument('--lr', type=float, default=0.0001, help='learning rate (default: 0.0001)')
+    parser.add_argument('--seed', type=int, default=1, help='random seed (default: 1)')
+    parser.add_argument('--log-interval', type=int, default=10, help='how many batches to wait before logging training status')
+    parser.add_argument('--save-model', action='store_true', default=False, help='For Saving the current Model')
+    parser.add_argument('--problem', type=str, default="Cover", help='Problem for classification')
+    parser.add_argument('--dry-run', action='store_true', default=False, help='quickly check a single pass')
+    return parser.parse_args()
+
+args = parse_args()
+ROOT_DIR = os.path.join("/home/vault/iwfa/iwfa018h/FAPS/NewMotorsDataset/AugClassification1/", args.problem)
 print(ROOT_DIR)
 train_csv_path = os.path.join(ROOT_DIR, "train.csv")
 test_csv_path = os.path.join(ROOT_DIR, "test.csv")
@@ -31,9 +46,9 @@ views = ["file_name"]
 labels = ["label", "~label"]
 
 num_classes = len(labels)
-epochs = 30
-lr = 0.0001
-batch_size = 32
+epochs = args.epochs
+lr = args.lr
+batch_size = args.batch_size
 loss_func = torch.nn.CrossEntropyLoss(weight=None)
 # loss_func = FocalLoss(gamma=1)
 output_activation = torch.nn.Softmax(dim=1)
