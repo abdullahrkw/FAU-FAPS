@@ -13,7 +13,7 @@ from torchvision.models import densenet121
 
 from dataloader.dataloader import MultiViewDataset, MultiViewDataset2
 from focal_loss import FocalLoss
-from network import ResNet, LateFusionNetwork
+from network import ResNet, DeepCNN
 from utils.data_splitting import random_split_dataset
 from utils.visualisations import visualize_dataloader_for_class_balance
 from eval import evaluate
