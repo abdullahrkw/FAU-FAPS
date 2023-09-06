@@ -10,21 +10,22 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from torch import optim
 
-from dataloader_new import MultiViewDataset
-from my_models import ViT, CrossViT   # rename the skeleton file for your implementation / comment before testing for ResNet
+from dataloader import MultiViewDataset
+from models import ViT, CrossViT   # rename the skeleton file for your implementation / comment before testing for ResNet
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a neural network to classify CIFAR10')
     parser.add_argument('--model', type=str, default='r18', help='model to train (default: r18)')
-    parser.add_argument('--batch-size', type=int, default=64, help='input batch size for training (default: 64)')
+    parser.add_argument('--batch-size', type=int, default=128, help='input batch size for training (default: 64)')
     parser.add_argument('--epochs', type=int, default=5, help='number of epochs to train (default: 5)')
-    parser.add_argument('--lr', type=float, default=0.003, help='learning rate (default: 0.003)')
+    parser.add_argument('--lr', type=float, default=0.0001, help='learning rate (default: 0.0001)')
     parser.add_argument('--momentum', type=float, default=0.9, help='SGD momentum (default: 0.9)')
     parser.add_argument('--no-cuda', action='store_true', default=False, help='disables CUDA training')
     parser.add_argument('--seed', type=int, default=1, help='random seed (default: 1)')
     parser.add_argument('--log-interval', type=int, default=10, help='how many batches to wait before logging training status')
     parser.add_argument('--save-model', action='store_true', default=False, help='For Saving the current Model')
+    parser.add_argument('--problem', type=str, default="Screw", help='Problem for classification')
     parser.add_argument('--dry-run', action='store_true', default=False, help='quickly check a single pass')
     return parser.parse_args()
 
@@ -79,7 +80,8 @@ def run(args):
                                     ])
     
     target_transform = None
-    ROOT_DIR = "/home/vault/iwfa/iwfa018h/FAPS/NewMotorsDataset/AugClassification1/Sheet_Metal_Package/"
+    ROOT_DIR = "/home/vault/iwfa/iwfa018h/FAPS/NewMotorsDataset/AugClassification1/"
+    ROOT_DIR = os.path.join(ROOT_DIR, args.problem)
     print(ROOT_DIR)
     train_csv_path = os.path.join(ROOT_DIR, "train.csv")
     test_csv_path = os.path.join(ROOT_DIR, "test.csv")
@@ -139,12 +141,12 @@ def run(args):
                     depth = 2, heads = 8, mlp_dim = 128, dropout = 0.2,
                     emb_dropout = 0.1) 
     elif args.model == "cvit":
-        model = CrossViT(image_size = 256, num_classes = 2, sm_dim = 64, 
-                         lg_dim = 128, sm_patch_size = 8, sm_enc_depth = 2,
-                         sm_enc_heads = 8, sm_enc_mlp_dim = 128, 
-                         sm_enc_dim_head = 64, lg_patch_size = 16, 
-                         lg_enc_depth = 2, lg_enc_heads = 8, 
-                         lg_enc_mlp_dim = 128, lg_enc_dim_head = 64,
+        model = CrossViT(image_size = 256, num_classes = 2, sm_dim = 192, 
+                         lg_dim = 384, sm_patch_size = 16, sm_enc_depth = 2,
+                         sm_enc_heads = 8, sm_enc_mlp_dim = 2048, 
+                         sm_enc_dim_head = 64, lg_patch_size = 64, 
+                         lg_enc_depth = 3, lg_enc_heads = 8, 
+                         lg_enc_mlp_dim = 2048, lg_enc_dim_head = 64,
                          cross_attn_depth = 2, cross_attn_heads = 8,
                          cross_attn_dim_head = 64, depth = 3, dropout = 0.1,
                          emb_dropout = 0.1)
