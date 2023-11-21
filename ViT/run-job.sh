@@ -15,4 +15,6 @@ source /home/hpc/iwfa/iwfa018h/.bashrc
 conda activate FAPS
 # python trainer.py
 #["Screw", "Sheet_Metal_Package", "Winding_Head", "Cable", "Cover"]
-python main.py --model cvit --epochs ${epochs} --problem ${problem}
+python main.py --model cvit --epochs ${epochs} --problem ${problem} --lr ${lr} --batch-size ${batch}
+
+echo ${epochs}_${problem}_${lr}_${batch}

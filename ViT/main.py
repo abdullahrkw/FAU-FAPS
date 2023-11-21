@@ -84,7 +84,7 @@ def run(args):
     ROOT_DIR = os.path.join(ROOT_DIR, args.problem)
     print(ROOT_DIR)
     train_csv_path = os.path.join(ROOT_DIR, "train.csv")
-    test_csv_path = os.path.join(ROOT_DIR, "test.csv")
+    test_csv_path = os.path.join(ROOT_DIR, "test_orig.csv")
     val_csv_path = os.path.join(ROOT_DIR, "val.csv")
 
     views = ["file_name"]

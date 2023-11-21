@@ -9,12 +9,11 @@ from pytorch_lightning import loggers, Trainer, callbacks
 from torch.utils.data import DataLoader
 import torch
 from torch.utils.data import WeightedRandomSampler
-from torchvision.models import resnet18, resnet50, resnet101
 from torchvision.models import densenet121
 
-from dataloader.dataloader import MultiViewDataset, MultiViewDataset2
+from dataloader.dataloader import MultiViewDataset
 from focal_loss import FocalLoss
-from network import ResNet, DeepCNN
+from network import DeepCNN
 from utils.data_splitting import random_split_dataset
 from utils.visualisations import visualize_dataloader_for_class_balance
 from eval import evaluate
@@ -33,7 +32,7 @@ def parse_args():
     return parser.parse_args()
 
 args = parse_args()
-ROOT_DIR = os.path.join("/home/vault/iwfa/iwfa018h/FAPS/NewMotorsDataset/AugClassification1/", args.problem)
+ROOT_DIR = os.path.join("/home/vault/iwfa/iwfa018h/FAPS/NewMotorsDataset/Classification1/", args.problem)
 print(ROOT_DIR)
 train_csv_path = os.path.join(ROOT_DIR, "train.csv")
 test_csv_path = os.path.join(ROOT_DIR, "test.csv")
@@ -64,9 +63,9 @@ for layer in freeze_layers:
     for param in getattr(getattr(model, "features"), layer).parameters():
         param.requires_grad = False
 
-train_dataset = MultiViewDataset2(train_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
-val_dataset = MultiViewDataset2(val_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
-test_dataset = MultiViewDataset2(test_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
+train_dataset = MultiViewDataset(train_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=True)
+val_dataset = MultiViewDataset(val_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
+test_dataset = MultiViewDataset(test_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
 
 
 # Sampler to for oversampling/undersampling to counter class imbalance

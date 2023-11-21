@@ -14,4 +14,6 @@ unset SLURM_EXPORT_ENV
 source /home/hpc/iwfa/iwfa018h/.bashrc
 conda activate FAPS
 #["Screw", "Sheet_Metal_Package", "Winding_Head", "Cable", "Cover"]
-python trainer.py --epochs ${epochs} --problem ${problem}
+python trainer.py --epochs ${epochs} --problem ${problem} --lr ${lr} --batch-size ${batch}
+
+echo ${epochs}_${problem}_${lr}_${batch}

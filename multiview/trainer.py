@@ -11,7 +11,7 @@ from torch.utils.data import WeightedRandomSampler
 from torchvision.models import resnet18, resnet50, resnet101
 from torchvision.models import densenet121
 
-from dataloader.dataloader import MultiViewDataset, MultiViewDataset2
+from dataloader.dataloader import MultiViewDataset
 from focal_loss import FocalLoss
 from network import ResNet, LateFusionNetwork
 from utils.data_splitting import random_split_dataset
@@ -50,9 +50,9 @@ for layer in freeze_layers:
     for param in getattr(getattr(model, "features"), layer).parameters():
         param.requires_grad = False
 
-train_dataset = MultiViewDataset2(train_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
-val_dataset = MultiViewDataset2(val_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
-test_dataset = MultiViewDataset2(test_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
+train_dataset = MultiViewDataset(train_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
+val_dataset = MultiViewDataset(val_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
+test_dataset = MultiViewDataset(test_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
 
 
 # Sampler to for oversampling/undersampling to counter class imbalance
