@@ -1,6 +1,6 @@
 /*
 !.gitignore
-
+!faps_project_environment.yaml
 !CNN
 !multiview
 !PyTorch-VAE
