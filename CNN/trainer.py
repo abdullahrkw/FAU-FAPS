@@ -38,8 +38,7 @@ train_csv_path = os.path.join(ROOT_DIR, "train.csv")
 test_csv_path = os.path.join(ROOT_DIR, "test.csv")
 val_csv_path = os.path.join(ROOT_DIR, "val.csv")
 
-views = ["file_name"]
-# views = ["1", "2", "3",  "4", "5", "6"]
+views = ["file_name"] # Only one view supported here.
 
 # Order matter for labels
 labels = ["label", "~label"]

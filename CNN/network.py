@@ -27,34 +27,26 @@ class DeepCNN(LightningModule):
           ('fc2', torch.nn.Linear(in_features=len(self.views)*backbone_out, out_features=num_classes)),
         ]))
 
-    def forward(self, *views):
-        x_cat = None
-        for view in views:
-            x = self.backbone(view)
-            x_cat = x if x_cat is None else torch.cat((x_cat, x), dim=1)
-        x = self.late_fc(x_cat)
+    def forward(self, view):
+        x = self.backbone(view)
+        x = self.late_fc(x)
         return x
 
     def training_step(self, train_batch, batch_idx):
-        views = []
-        for view in self.views:
-            x = train_batch[view]
-            views.append(x)
+        view = self.views[0]
+        x = train_batch[view]
         target = train_batch["label"]
-        pred = self(*views)
+        pred = self(x)
         pred = self.output_activation(pred)
         loss = self.loss_func(pred, target)
         self.log("train_loss", loss)
         return loss
 
     def validation_step(self, val_batch, batch_idx):
-        views = []
-        for view in self.views:
-            x = val_batch[view]
-            views.append(x)
+        view = self.views[0]
+        x = val_batch[view]
         target = val_batch["label"]
-
-        pred = self(*views)
+        pred = self(x)
         pred = self.output_activation(pred)
         loss = self.loss_func(pred, target)
         self.log("val_loss", loss)
@@ -65,13 +57,10 @@ class DeepCNN(LightningModule):
         return loss
 
     def test_step(self, test_batch, batch_idx):
-        views = []
-        for view in self.views:
-            x = test_batch[view]
-            views.append(x)
+        view = self.views[0]
+        x = test_batch[view]
         target = test_batch["label"]
-
-        pred = self(*views)
+        pred = self(x)
         pred = self.output_activation(pred)
         loss = self.loss_func(pred, target)
         self.log("test_loss", loss)
@@ -82,12 +71,9 @@ class DeepCNN(LightningModule):
         return loss
 
     def predict_step(self, batch, batch_idx):
-        views = []
-        for view in self.views:
-            x = batch[view]
-            views.append(x)
-
-        y = self(*views)
+        view = self.views[0]
+        x = batch[view]
+        y = self(x)
 
         return y
 

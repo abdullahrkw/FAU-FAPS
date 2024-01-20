@@ -32,24 +32,20 @@ def normalize(item):
     return item
 
 def save_entire_model(model, filepath, metadata=None):
-    save_dict = {
-        'model': model,
-        'metadata': metadata if metadata else {}
-    }
-
-    torch.save(save_dict, filepath)
+    model.metadata = metadata
+    model = model.to_torchscript()
+    torch.jit.save(model, filepath)
 
 def load_entire_model(filepath):
+    checkpoint = torch.jit.load(filepath)
+    metadata = checkpoint.metadata
 
-    checkpoint = torch.load(filepath)
-    model = checkpoint['model']
-    metadata = checkpoint['metadata']
-
-    return model, metadata
+    return checkpoint, metadata
 
 
 num_classes = 2
 model = densenet121()
+print(model)
 
 # fc for resnet, classifier for densenet
 backbone_out_features = model.classifier.out_features
@@ -70,18 +66,19 @@ image_path = "Final_results/test_images/mittel_0104_Kombination_20_num_2_1_t40.j
 inp_tensor = preprocessing(image_path)
 inp_tensor = inp_tensor.reshape(1, *inp_tensor.shape) # reshaping N, C, H, W. N is batch size.
 pred = final_model(inp_tensor)
+
 labels = ["Error", "Non Error"]
 print(pred)
 pred = torch.argmax(pred, dim=1)
 print(f"Label of image is {labels[pred[0]]}")
 
-#### Method 2 Saving & Loading #####
+#### Method 2: Torchscript Saving & Loading #####
 
-metadata = {'input_size': 256, 'num_classes': 2}
-filepath = "Final_results/Screw_epoch=9-step=1080_model_with_metadata.ckpt"
+metadata = {'input_size': 256, 'num_classes': num_classes}
+filepath = "Final_results/Screw_epoch=9-step=1080_torchscript_model_with_metadata.ckpt"
 save_entire_model(final_model, filepath, metadata=metadata)
 
-model, _ = load_entire_model(filepath)
+model, metadata = load_entire_model(filepath)
 pred = model(inp_tensor)
 labels = ["Error", "Non Error"]
 print(pred)
