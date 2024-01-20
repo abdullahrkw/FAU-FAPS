@@ -108,9 +108,9 @@ def objective(trial):
     )
     fusion_model = DeepCNN(backbone=model, backbone_out=backbone_out_features, num_classes=num_classes, lr=lr)
     trainer.fit(fusion_model, mv_train_loader, mv_val_loader)
-    return trainer.callback_metrics["val_acc"].item()
+    return trainer.callback_metrics["val_loss"].item()
 
-# study = optuna.create_study(direction="maximize")
+# study = optuna.create_study(direction="minimize")
 # study.optimize(objective, n_trials=100)
 
 # print("Number of finished trials: {}".format(len(study.trials)))
