@@ -9,7 +9,7 @@ from PIL import Image
 
 
 class MultiViewDataset(object):
-    def __init__(self, path, views, labels, base_dir=None, transform=True, normalize=True) -> None:
+    def __init__(self, path, views, labels, base_dir=None, transform=True, normalize=True, pil_image_mode="L") -> None:
         self.data = []
         self.transform = transform
         self.normalize = normalize
@@ -17,6 +17,8 @@ class MultiViewDataset(object):
         self.labels = labels
         self.base_dir = base_dir
         self.initialize_data(path)
+        self.pil_image_mode = pil_image_mode # "'RGB' for rgb image and 'L' for grayscale image"
+        self.image_size = (256, 256)
         self.img_aug =  ia.Sometimes(0.96, ia.SomeOf(3, [
             ia.Fliplr(0.8),
             ia.Flipud(0.8),
@@ -24,7 +26,6 @@ class MultiViewDataset(object):
             ia.Affine(scale=(0.7, 1.1)), 
             ia.Affine(rotate=(-45, 45)),
         ]))
-        # self.g_blur = ia.GaussianBlur(sigma=40)
 
     def __getitem__(self, i) -> dict:
         item = self.data[i]
@@ -41,9 +42,9 @@ class MultiViewDataset(object):
         return output
 
     def _process_view(self, img):
-        new_w, new_h = (256,256)
+        new_w, new_h = self.image_size
         # resize but keep aspect ratio
-        background = Image.new("RGB", (new_w, new_h))
+        background = Image.new(self.pil_image_mode, (new_w, new_h))
         img.thumbnail((new_w, new_h))
         background.paste(img, (0,0))
         img = background
@@ -54,6 +55,8 @@ class MultiViewDataset(object):
         if self.normalize:
             img = self._normalize(img)
 
+        if self.pil_image_mode == "L":
+            img = np.expand_dims(img, 0).repeat(3, axis=0)
         img = np.reshape(img, (3, new_h, new_w))
         img = torch.from_numpy(img)
         return img
@@ -63,8 +66,7 @@ class MultiViewDataset(object):
     
     def _load_img(self, path) -> Image:
         img = Image.open(path)
-        # img = img.convert(mode="L")
-        img = img.convert(mode="RGB")
+        img = img.convert(mode=self.pil_image_mode)
         return img
 
     def initialize_data(self, path) -> None:
@@ -92,23 +94,29 @@ class MultiViewDataset(object):
 
     def _normalize(self, item):
         item = item/255
-        # imagenet mean and std
-        mean =  np.array([0.485, 0.456, 0.406])
-        std = np.array([0.229, 0.224, 0.225])
-        item[:,:,0] = (item[:,:,0] - mean[0])/std[0]
-        item[:,:,1] = (item[:,:,1] - mean[1])/std[1]
-        item[:,:,2] = (item[:,:,2] - mean[2])/std[2]
+        # If image is grayscale
+        if self.pil_image_mode == "L":
+            item = (item - np.mean(item))/np.std(item)
+        elif self.pil_image_mode == "RGB":
+            # If Image is RGB: imagenet mean and std
+            mean =  np.array([0.485, 0.456, 0.406])
+            std = np.array([0.229, 0.224, 0.225])
+            item[:,:,0] = (item[:,:,0] - mean[0])/std[0]
+            item[:,:,1] = (item[:,:,1] - mean[1])/std[1]
+            item[:,:,2] = (item[:,:,2] - mean[2])/std[2]
+        else:
+            raise ValueError("PIL Image mode not supported")
         return item
 
 if __name__=="__main__":
     views = ["file_name"]
     # Order matter for labels
     labels = ["label", "~label"]
-    ROOT_DIR = "/home/vault/iwfa/iwfa018h/FAPS/NewMotorsDataset/Classification/Sheet_Metal_Package/"
+    ROOT_DIR = "/home/vault/iwfa/iwfa018h/FAPS/NewMotorsDataset/Classification/Cover/"
     csv_path = os.path.join(ROOT_DIR, "train.csv")
-    mv_dst = MultiViewDataset(csv_path, views, labels, base_dir=ROOT_DIR, normalize=False)
+    mv_dst = MultiViewDataset(csv_path, views, labels, base_dir=ROOT_DIR, normalize=False, pil_image_mode="RGB")
     print(mv_dst.data[0])
-    item = mv_dst[0]
+    item = mv_dst[30]
     view1 = item[views[0]]
     print(view1.shape)
     view1 = view1.numpy()
@@ -119,4 +127,4 @@ if __name__=="__main__":
     img = Image.fromarray(view1)
 
     img = img.convert("RGB")
-    img.save("visualisations/view1.jpg")
+    img.save("cover.jpg")

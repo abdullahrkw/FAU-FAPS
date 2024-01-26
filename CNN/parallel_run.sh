@@ -10,13 +10,13 @@ ARGS="-P$N_JOBS --header :"
 PROJECT=('CNN_Experiments')
 
 # PROBLEMS=("Screw" "Sheet_Metal_Package" "Winding_Head" "Cable" "Cover")
-PROBLEMS=("Cover")
+PROBLEMS=("Screw" "Sheet_Metal_Package" "Winding_Head")
 
-MAX_EPOCHS=(30 40 50)
+MAX_EPOCHS=(20 30 40)
 
-LR=(0.0001 0.001)
+LR=(0.0001 0.00001)
 
-BATCH_SIZE=(16 32)
+BATCH_SIZE=(32)
 
 parallel $ARGS \
     sbatch \

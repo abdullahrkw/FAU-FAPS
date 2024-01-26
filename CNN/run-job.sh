@@ -4,7 +4,7 @@
 # allocate nodes for hh:mm:ss
 #SBATCH --time=24:00:00
 # allocated one GPU (type not specified)
-#SBATCH --gres=gpu:rtx3080:1
+#SBATCH --gres=gpu:1
 # job name
 #SBATCH --job-name=FAU-FAPS
 # do not export environment variables

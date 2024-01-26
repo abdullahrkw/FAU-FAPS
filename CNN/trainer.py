@@ -6,6 +6,8 @@ import numpy as np
 import optuna
 from optuna.integration import PyTorchLightningPruningCallback
 from pytorch_lightning import loggers, Trainer, callbacks
+
+from pytorch_lightning.callbacks import LearningRateMonitor
 from torch.utils.data import DataLoader
 import torch
 from torch.utils.data import WeightedRandomSampler
@@ -62,9 +64,24 @@ for layer in freeze_layers:
     for param in getattr(getattr(model, "features"), layer).parameters():
         param.requires_grad = False
 
-train_dataset = MultiViewDataset(train_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=True)
-val_dataset = MultiViewDataset(val_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
-test_dataset = MultiViewDataset(test_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
+train_dataset = MultiViewDataset(train_csv_path,
+                                 views=views,
+                                 labels=labels,
+                                 base_dir=ROOT_DIR,
+                                 transform=True,
+                                 pil_image_mode="L")
+val_dataset = MultiViewDataset(val_csv_path,
+                               views=views,
+                               labels=labels,
+                               base_dir=ROOT_DIR,
+                               transform=False,
+                               pil_image_mode="L")
+test_dataset = MultiViewDataset(test_csv_path,
+                                views=views,
+                                labels=labels,
+                                base_dir=ROOT_DIR,
+                                transform=False,
+                                pil_image_mode="L")
 
 
 # Sampler to for oversampling/undersampling to counter class imbalance
@@ -89,7 +106,7 @@ mv_test_loader = DataLoader(test_dataset, shuffle=False, batch_size=1, num_worke
 
 # visualize_dataloader_for_class_balance(mv_train_loader, labels, "visualisations/balanced_dataset.png")
 
-tb_late_fusion = loggers.TensorBoardLogger(save_dir=ROOT_DIR + "experiments/",
+tb_late_fusion = loggers.TensorBoardLogger(save_dir=ROOT_DIR + "experiments_new/",
                              version=None,
                              prefix="late_fusion",
                              name='lightning_logs',
@@ -124,13 +141,14 @@ tb_late_fusion.log_hyperparams({"model": model.name,
                                     "output_activation": output_activation,
                                     "num_classes": num_classes})
 
-early_stop = callbacks.EarlyStopping('val_acc', mode="max", stopping_threshold=0.93)
+early_stop = callbacks.EarlyStopping('val_loss', mode="min", stopping_threshold=0.93)
+lr_monitor = LearningRateMonitor(logging_interval='step')
 trainer = Trainer(
     accelerator="auto",
     devices=1 if torch.cuda.is_available() else None,
     max_epochs = epochs,
     log_every_n_steps=15,
-    # callbacks=[early_stop],
+    callbacks=[lr_monitor],
     logger=[tb_late_fusion])
 
 fusion_model = DeepCNN(backbone=model,
