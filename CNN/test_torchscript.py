@@ -2,12 +2,32 @@ import numpy as np
 from PIL import Image
 import torch
 
-def preprocessing(image_path):
+
+# This v2 preprocessing is for Cover, Cable and Sheet metal package
+# It uses grayscale image rather than RGB image
+def preprocessing_v2(image_path, pil_image_mode="L"):
     img = Image.open(image_path)
-    img = img.convert(mode="RGB")
+    img = img.convert(mode=pil_image_mode)
     new_w, new_h = (256,256)
     # resize but keep aspect ratio
-    background = Image.new("RGB", (new_w, new_h))
+    background = Image.new(pil_image_mode, (new_w, new_h))
+    img.thumbnail((new_w, new_h))
+    background.paste(img, (0,0))
+    img = background
+    img = np.asarray(img, dtype=np.float32)
+    img = (img - np.mean(img))/np.std(img) # normalize
+    img = np.expand_dims(img, 0).repeat(3, axis=0)
+    img = np.reshape(img, (3, new_h, new_w))
+    img = torch.from_numpy(img)
+    return img
+
+# For RGB image inputs
+def preprocessing(image_path, pil_image_mode="RGB"):
+    img = Image.open(image_path)
+    img = img.convert(mode=pil_image_mode)
+    new_w, new_h = (256,256)
+    # resize but keep aspect ratio
+    background = Image.new(pil_image_mode, (new_w, new_h))
     img.thumbnail((new_w, new_h))
     background.paste(img, (0,0))
     img = background
@@ -38,11 +58,11 @@ if __name__=="__main__":
     #### Method 2: Torchscript Saving & Loading #####
 
     image_path = "Final_results/test_images/mittel_0104_Kombination_20_num_2_1_t40.jpg"
-    inp_tensor = preprocessing(image_path)
+    inp_tensor = preprocessing_v2(image_path)
     inp_tensor = inp_tensor.reshape(1, *inp_tensor.shape) # reshaping N, C, H, W. N is batch size.
 
     labels = ["Error", "Non Error"]
-    filepath = "Final_results/Screw_epoch=9-step=1080_torchscript_model_with_metadata.ckpt"
+    filepath = "Final_results/Cable_epoch=29-step=5610_grayscale_v2_torchscript_model_with_metadata.ckpt"
 
     model, metadata = load_entire_model(filepath)
     pred = model(inp_tensor)
