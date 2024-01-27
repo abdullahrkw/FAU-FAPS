@@ -121,7 +121,7 @@ if __name__=="__main__":
     print(view1.shape)
     view1 = view1.numpy()
     print(view1.shape)
-    view1 = view1.reshape((256, 256, 3))
+    view1 = np.transpose(view1, (1, 2, 0))
     view1 = view1.astype(np.uint8)
 
     img = Image.fromarray(view1)
