@@ -3,54 +3,7 @@ from collections import OrderedDict
 from pytorch_lightning import LightningModule
 from sklearn.metrics import accuracy_score, confusion_matrix
 import torch
-import torch.nn.functional as F
 import torch.optim
-
-from torchvision.models import resnet18
-
-class ResNet(LightningModule):
-    def __init__(self, model, lr=1e-3):
-        super().__init__()
-        self.save_hyperparameters(ignore=['model'])
-        self.resnet = model
-        self.lr = lr
-
-    def forward(self, x):
-        x = self.resnet(x)
-        return x
-
-    def training_step(self, train_batch, batch_idx):
-        x = train_batch["view"]
-        target = train_batch["label"]
-
-        pred = self(x)
-        loss = F.binary_cross_entropy(torch.sigmoid(pred), target)
-        self.log("train_loss", loss)
-        return loss
-
-    def validation_step(self, val_batch, batch_idx):
-        x = val_batch["view"]
-        target = val_batch["label"]
-        pred = self(x)
-        loss = F.binary_cross_entropy(torch.sigmoid(pred), target)
-        self.log("val_loss", loss)
-        return loss
-
-    def test_step(self, test_batch, batch_idx):
-        x = test_batch["view"]
-        target = test_batch["label"]
-        pred = self(x)
-        loss = F.binary_cross_entropy(torch.sigmoid(pred), target)
-        self.log("test_loss", loss)
-        return loss
-
-    def predict_step(self, batch, batch_idx):
-        x = batch["view"]
-        y = self(x)
-        return y
-
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
 
 
 class LateFusionNetwork(LightningModule):
@@ -100,7 +53,6 @@ class LateFusionNetwork(LightningModule):
             x = train_batch[view]
             views.append(x)
         target = train_batch["label"]
-        # print(torch.bincount(torch.argmax(target, dim=1)))
         pred = self(*views)
         pred = self.output_activation(pred)
         loss = self.loss_func(pred, target)
@@ -121,10 +73,6 @@ class LateFusionNetwork(LightningModule):
         target = target.cpu().argmax(axis=1).numpy()
         pred = pred.cpu().argmax(axis=1).numpy()
         accuracy = accuracy_score(target, pred)
-        # cm = confusion_matrix(target, pred)
-        # tp, fn, fp, tn = cm.ravel()
-        # self.log("val_true_pos", torch.tensor(tp, dtype=torch.float32), on_epoch=True, reduce_fx="sum")
-        # self.log("val_false_neg", torch.tensor(fn, dtype=torch.float32), on_epoch=True, reduce_fx="sum")
         self.log("val_acc", accuracy, on_epoch=True)
         return loss
 
@@ -160,7 +108,11 @@ class LateFusionNetwork(LightningModule):
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
-                "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=5, verbose=True),
+                "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
+                                                                        factor=0.1,
+                                                                        patience=6,
+                                                                        verbose=True,
+                                                                        min_lr=1e-6),
                 "monitor": "val_loss",
                 "interval": "epoch",
                 "frequency": 1,

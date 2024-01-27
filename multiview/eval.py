@@ -36,7 +36,6 @@ def evaluate(dataset, preds, classes):
     for id_ in range(len(preds)):
         gt = dataset[id_]["label"]
         pred = preds[id_]
-        # pred = torch.sigmoid(pred)
         gts[id_] = gt.numpy()
         predsn[id_] = pred.numpy()
 
@@ -47,11 +46,7 @@ def evaluate(dataset, preds, classes):
     print(y_pred)
     cm = confusion_matrix(y_true, y_pred)
     print(cm)
-    tp, fn, fp, tn = cm.ravel()
-    print("TP = ", tp, "FP = ", fp, "FN = ", fn, "TN = ", tn)
     result["accuracy"] = accuracy_score(y_true, y_pred)
-    result["true_positive"] = tp
-    result["false_negative"] = fn
     result["micro_precision"] = precision_score(y_true, y_pred, average='micro', zero_division=0)
     result["micro_recall"] = recall_score(y_true, y_pred, average='micro', zero_division=0)
     result["micro_f1"] = f1_score(y_true, y_pred, average='micro', zero_division=0)
@@ -61,5 +56,5 @@ def evaluate(dataset, preds, classes):
     result["macro_f1"] = f1_score(y_true, y_pred, average='macro', zero_division=0)
 
     print('\nClassification Report\n')
-    print(classification_report(y_true, y_pred, zero_division=0, target_names=classes))
+    print(classification_report(y_true, y_pred, zero_division=0, target_names=[str(x) for x in classes]))
     return result

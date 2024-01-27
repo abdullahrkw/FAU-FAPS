@@ -13,29 +13,25 @@ from torchvision.models import densenet121
 
 from dataloader.dataloader import MultiViewDataset
 from focal_loss import FocalLoss
-from network import ResNet, LateFusionNetwork
+from network import LateFusionNetwork
 from utils.data_splitting import random_split_dataset
 from utils.visualisations import visualize_dataloader_for_class_balance
 from eval import evaluate
 
-ROOT_DIR = "/home/vault/iwfa/iwfa018h/FAPS/NewMotorsDataset/AugClassification1/Sheet_Metal_Package/"
+ROOT_DIR = "/home/hpc/iwfa/iwfa018h/FAU-FAPS/multiview/oldElectricMotorData/"
 print(ROOT_DIR)
 train_csv_path = os.path.join(ROOT_DIR, "train.csv")
 test_csv_path = os.path.join(ROOT_DIR, "test.csv")
 val_csv_path = os.path.join(ROOT_DIR, "val.csv")
 
-views = ["file_name"]
-# views = ["1", "2", "3",  "4", "5", "6"]
+views = ["view1", "view2"]
+labels = ["label"]
 
-# Order matter for labels
-labels = ["label", "~label"]
-
-num_classes = len(labels)
-epochs = 30
+num_classes = 14
+epochs = 100
 lr = 0.0001
 batch_size = 32
 loss_func = torch.nn.CrossEntropyLoss(weight=None)
-# loss_func = FocalLoss(gamma=1)
 output_activation = torch.nn.Softmax(dim=1)
 # use resnet18, resnet34, resnet50, resnet101, densenet121
 model = densenet121(weights="IMAGENET1K_V1")
@@ -50,9 +46,9 @@ for layer in freeze_layers:
     for param in getattr(getattr(model, "features"), layer).parameters():
         param.requires_grad = False
 
-train_dataset = MultiViewDataset(train_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
-val_dataset = MultiViewDataset(val_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
-test_dataset = MultiViewDataset(test_csv_path, views=views, labels=labels, base_dir=ROOT_DIR, transform=False)
+train_dataset = MultiViewDataset(train_csv_path, views, labels, num_classes, transform=True)
+val_dataset = MultiViewDataset(val_csv_path, views, labels, num_classes, transform=False)
+test_dataset = MultiViewDataset(test_csv_path, views, labels, num_classes, transform=False)
 
 
 # Sampler to for oversampling/undersampling to counter class imbalance
@@ -60,22 +56,21 @@ class_counts = np.ones(num_classes)
 for i, val in enumerate(train_dataset.data):
     label = np.asarray(val["label"])
     # assuming one-hot encoding
-    class_ = np.argmax(label)
+    class_ = label[0]
     class_counts[class_] += 1
 
 sample_weights = np.zeros(len(train_dataset.data))
 for i, val in enumerate(train_dataset.data):
     label = np.asarray(val["label"])
     # assuming one-hot encoding
-    class_ = np.argmax(label)
+    class_ = label[0]
     sample_weights[i] = 1/class_counts[class_]
-
+print(class_counts)
 sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(train_dataset), replacement=True)
-mv_train_loader = DataLoader(train_dataset, sampler=sampler, shuffle=False, batch_size=batch_size, num_workers=4, drop_last=True)
+mv_train_loader = DataLoader(train_dataset, sampler=sampler, batch_size=batch_size, num_workers=4, drop_last=True)
 mv_val_loader = DataLoader(val_dataset, shuffle=False, batch_size=batch_size, num_workers=4, drop_last=True)
 mv_test_loader = DataLoader(test_dataset, shuffle=False, batch_size=1, num_workers=4)
 
-# visualize_dataloader_for_class_balance(mv_train_loader, labels, "visualisations/balanced_dataset.png")
 
 tb_late_fusion = loggers.TensorBoardLogger(save_dir=ROOT_DIR + "experiments/",
                              version=None,
@@ -134,9 +129,9 @@ trainer.test(dataloaders=mv_test_loader, ckpt_path="last")
 # Prediction on validation dataset
 mv_val_loader = DataLoader(val_dataset, shuffle=False, batch_size=1, num_workers=4, drop_last=True)
 preds = trainer.predict(dataloaders=mv_val_loader, ckpt_path="last")
-result = evaluate(val_dataset, preds, labels)
+result = evaluate(val_dataset, preds, np.arange(0, num_classes))
 
 # prediction on test dataset
 preds = trainer.predict(dataloaders=mv_test_loader, ckpt_path="last")
-result = evaluate(test_dataset, preds, labels)
+result = evaluate(test_dataset, preds, np.arange(0, num_classes))
 tb_late_fusion.log_metrics(result)
